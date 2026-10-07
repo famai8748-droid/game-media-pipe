@@ -1051,6 +1051,7 @@ header {
 }
 
 .bottom-hud-card {
+  position: relative;
   pointer-events: auto;
   background: rgba(10, 15, 29, 0.55);
   backdrop-filter: blur(12px);
@@ -1063,6 +1064,94 @@ header {
   flex-direction: column;
   gap: 0.7rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Floating Arcade Combo Badge */
+.combo-badge {
+  position: absolute;
+  top: -46px;
+  left: 50%;
+  transform: translateX(-50%) scale(0);
+  opacity: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: #000;
+  border: 3px solid #ffe600;
+  box-shadow: 0 5px 0 #000, 0 0 20px rgba(255, 230, 0, 0.8);
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-family: 'Karmatic Arcade', 'Outfit', sans-serif;
+  font-size: 0.82rem;
+  color: #ffe600;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease;
+}
+
+.combo-badge.active {
+  transform: translateX(-50%) scale(1);
+  opacity: 1;
+}
+
+.combo-badge.pop {
+  animation: comboPopAnim 0.35s ease-out;
+}
+
+@keyframes comboPopAnim {
+  0% { transform: translateX(-50%) scale(0.85); }
+  50% { transform: translateX(-50%) scale(1.32); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
+.combo-fire {
+  font-size: 1rem;
+  display: inline-block;
+  animation: fireWiggle 0.6s infinite alternate ease-in-out;
+}
+
+@keyframes fireWiggle {
+  from { transform: rotate(-8deg) scale(0.95); }
+  to { transform: rotate(8deg) scale(1.15); }
+}
+
+.combo-badge.p1-combo {
+  border-color: #ef4444;
+  color: #ff6b6b;
+  box-shadow: 0 5px 0 #000, 0 0 20px rgba(239, 68, 68, 0.8);
+}
+
+.combo-badge.p2-combo {
+  border-color: #22c55e;
+  color: #4ade80;
+  box-shadow: 0 5px 0 #000, 0 0 20px rgba(34, 197, 94, 0.8);
+}
+
+.combo-badge.solo-combo {
+  border-color: #38bdf8;
+  color: #38bdf8;
+  box-shadow: 0 5px 0 #000, 0 0 20px rgba(56, 189, 248, 0.8);
+}
+
+/* Combo 6s Countdown Progress Bar */
+.combo-timer-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.combo-timer-bar {
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  border-radius: 2px;
+  transition: width 0.1s linear;
 }
 
 .p1-bottom-dock {

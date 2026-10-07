@@ -23,6 +23,14 @@ let p2Score = 0;
 let p1ConsecutivePass = 0;
 let p2ConsecutivePass = 0;
 
+// COMBO STREAK & MULTIPLIER SYSTEM (6-second decay window)
+const COMBO_WINDOW_MS = 6000; // 6 seconds window
+const comboState = {
+  solo: { count: 0, mult: 1, timer: null, endTime: 0 },
+  p1:   { count: 0, mult: 1, timer: null, endTime: 0 },
+  p2:   { count: 0, mult: 1, timer: null, endTime: 0 }
+};
+
 // Camera & Detection State (PoseLandmarker instances live in section 3)
 let cameraStream = null;
 let isWebcamProcessing = false;
@@ -519,34 +527,129 @@ function updateMeter(player, score) {
 }
 
 /* ==========================================================
-   6. SCORING & INDEPENDENT POSE ADVANCEMENT
+   6. SCORING & INDEPENDENT POSE ADVANCEMENT WITH COMBO SYSTEM
    ========================================================== */
+function registerCombo(player) {
+  const state = comboState[player];
+  state.count++;
+  // Multiplier scales: 1x (combo 1), 2x (combo 2-3), 3x (combo 4-5), 4x (combo 6+)
+  if (state.count >= 6) {
+    state.mult = 4;
+  } else if (state.count >= 4) {
+    state.mult = 3;
+  } else if (state.count >= 2) {
+    state.mult = 2;
+  } else {
+    state.mult = 1;
+  }
+
+  // Audio: Combo sound with rising pitch
+  if (state.count >= 2) {
+    SoundFX.playCombo(state.count);
+  } else {
+    SoundFX.playCoin();
+  }
+
+  // Start 6-second decay timer
+  state.endTime = Date.now() + COMBO_WINDOW_MS;
+  if (state.timer) clearInterval(state.timer);
+
+  updateComboBadgeUI(player);
+
+  state.timer = setInterval(() => {
+    const remaining = state.endTime - Date.now();
+    if (remaining <= 0) {
+      clearInterval(state.timer);
+      state.timer = null;
+      breakCombo(player);
+    } else {
+      updateComboTimerBar(player, remaining / COMBO_WINDOW_MS);
+    }
+  }, 50);
+
+  return state.mult;
+}
+
+function breakCombo(player) {
+  const state = comboState[player];
+  if (state.count >= 2) {
+    // Only buzz if player actually had a real combo going
+    SoundFX.playComboBreak();
+  }
+  state.count = 0;
+  state.mult = 1;
+  state.endTime = 0;
+  if (state.timer) {
+    clearInterval(state.timer);
+    state.timer = null;
+  }
+  updateComboBadgeUI(player);
+}
+
+function resetAllCombos() {
+  ['solo', 'p1', 'p2'].forEach(p => {
+    const s = comboState[p];
+    if (s.timer) clearInterval(s.timer);
+    s.count = 0;
+    s.mult = 1;
+    s.endTime = 0;
+    s.timer = null;
+    updateComboBadgeUI(p);
+  });
+}
+
+function updateComboBadgeUI(player) {
+  const badge = document.getElementById(`combo-badge-${player}`);
+  const num = document.getElementById(`combo-num-${player}`);
+  const timerBar = document.getElementById(`combo-timer-${player}`);
+  if (!badge || !num) return;
+
+  const state = comboState[player];
+  if (state.count >= 2) {
+    badge.classList.add('active', 'pop');
+    num.innerText = state.count;
+    // Remove pop animation class so it can re-trigger on next hit
+    setTimeout(() => badge.classList.remove('pop'), 350);
+  } else {
+    badge.classList.remove('active', 'pop');
+    if (timerBar) timerBar.style.width = '100%';
+  }
+}
+
+function updateComboTimerBar(player, ratio) {
+  const timerBar = document.getElementById(`combo-timer-${player}`);
+  if (timerBar) {
+    timerBar.style.width = `${Math.max(0, Math.min(100, ratio * 100))}%`;
+  }
+}
+
 function onPoseCompleted(player) {
-  SoundFX.playCoin();
+  const mult = registerCombo(player);
+  const earnedPts = 100 * mult;
 
   if (player === 'solo') {
     p1ConsecutivePass = 0;
-    p1Score += 100;
+    p1Score += earnedPts;
     if (pSoloScore) pSoloScore.innerText = p1Score;
-    triggerCoinFx('solo');
+    triggerCoinFx('solo', mult);
 
     // Solo advances active pose
     activePoseIndex = (activePoseIndex + 1) % allPoses.length;
     renderTargetPose();
   } else if (player === 'p1') {
     p1ConsecutivePass = 0;
-    p1Score += 100;
+    p1Score += earnedPts;
     if (p1ScoreEl) p1ScoreEl.innerText = p1Score;
-    triggerCoinFx('p1');
+    triggerCoinFx('p1', mult);
 
     // Player 1 advances independently
     p1PoseIndex = (p1PoseIndex + 1) % allPoses.length;
     renderP1TargetPose();
   } else if (player === 'p2') {
     p2ConsecutivePass = 0;
-    p2Score += 100;
+    p2Score += earnedPts;
     if (p2ScoreEl) p2ScoreEl.innerText = p2Score;
-    triggerCoinFx('p2');
+    triggerCoinFx('p2', mult);
 
     // Player 2 advances independently
     p2PoseIndex = (p2PoseIndex + 1) % allPoses.length;
@@ -603,10 +706,11 @@ function renderP2TargetPose() {
   }
 }
 
-function triggerCoinFx(player) {
+function triggerCoinFx(player, mult = 1) {
+  const count = mult > 1 ? Math.min(120, 50 * mult) : 50;
   confetti({
-    particleCount: 50,
-    spread: 60,
+    particleCount: count,
+    spread: 60 + (mult * 10),
     origin: {
       x: player === 'p1' ? 0.3 : player === 'p2' ? 0.7 : 0.5,
       y: 0.6
@@ -939,11 +1043,12 @@ async function beginDuoMatchGameplay() {
 }
 
 function resetMatchState() {
-  // Reset Scores
+  // Reset Scores & Combos
   p1Score = 0;
   p2Score = 0;
   p1ConsecutivePass = 0;
   p2ConsecutivePass = 0;
+  resetAllCombos();
   if (pSoloScore) pSoloScore.innerText = '0';
   if (p1ScoreEl) p1ScoreEl.innerText = '0';
   if (p2ScoreEl) p2ScoreEl.innerText = '0';

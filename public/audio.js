@@ -48,6 +48,60 @@ class RetroAudioEngine {
     osc.stop(now + 0.4);
   }
 
+  // Combo Streak chime (Pitch increases as combo grows, higher & more energetic)
+  playCombo(combo = 1) {
+    if (this.isMuted) return;
+    this.init();
+    const now = this.ctx.currentTime;
+    // Base frequency rises with combo: 1x -> ~523Hz(C5), 5x -> ~1046Hz(C6)
+    const baseFreq = Math.min(1500, 523.25 * Math.pow(1.12, Math.min(combo, 10)));
+    const osc1 = this.ctx.createOscillator();
+    const osc2 = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc1.type = 'triangle';
+    osc2.type = 'sine';
+    osc1.frequency.setValueAtTime(baseFreq, now);
+    osc1.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, now + 0.15);
+
+    osc2.frequency.setValueAtTime(baseFreq * 1.25, now);
+    osc2.frequency.exponentialRampToValueAtTime(baseFreq * 2.0, now + 0.2);
+
+    gain.gain.setValueAtTime(0.28, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 0.36);
+    osc2.stop(now + 0.36);
+  }
+
+  // Combo Break sound (Downward discordant buzz)
+  playComboBreak() {
+    if (this.isMuted) return;
+    this.init();
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(110, now + 0.28);
+
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.32);
+  }
+
   // Mario 1-Up Chime
   playOneUp() {
     if (this.isMuted) return;
