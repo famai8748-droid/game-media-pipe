@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pose Game & Studio - สตูดิโออัปโหลดและตรวจสอบท่าทาง</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap"
+    rel="stylesheet">
+
+  <!-- MediaPipe Holistic, Camera Utils & Drawing Utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js" crossorigin="anonymous"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #080c14;
+      --bg-card: rgba(15, 23, 42, 0.75);
+      --border-card: rgba(56, 189, 248, 0.2);
+      --accent-cyan: #06b6d4;
+      --accent-neon: #38bdf8;
+      --accent-green: #10b981;
+      --accent-purple: #a855f7;
+      --accent-pink: #ec4899;
+      --accent-amber: #f59e0b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Kanit', sans-serif;
+      background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #080c14 80%);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding-bottom: 3rem;
+      overflow-x: hidden;
+    }
+
+    /* Top Nav */
+    header {
+      background: rgba(10, 15, 29, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-card);
+      padding: 0.75rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #8b5cf6, #38bdf8);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.35rem;
+      box-shadow: 0 0 16px rgba(139, 92, 246, 0.4);
+    }
+
+    .brand-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #ffffff 30%, #38bdf8 70%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Navigation Mode Tabs */
+    .mode-nav {
+      display: flex;
+      gap: 0.5rem;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 0.3rem;
+      border-radius: 0.85rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .mode-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-size: 0.92rem;
+      font-family: 'Kanit', sans-serif;
+      font-weight: 600;
+      padding: 0.45rem 1.15rem;
+      border-radius: 0.65rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      transition: all 0.2s;
+    }
+
+    .mode-btn.active {
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(56, 189, 248, 0.35);
+    }
+
+    .header-stats {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.35rem 0.95rem;
+      border-radius: 9999px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    /* Container Views */
+    .view-section {
+      display: none;
+      max-width: 1600px;
+      margin: 1.5rem auto 0;
+      padding: 0 1.5rem;
+    }
+
+    .view-section.active {
+      display: block;
+    }
+
+    /* Common Card Styles */
+    .app-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 1.5rem;
+      padding: 1.35rem;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(16px);
+    }
+
+    .btn {
+      font-family: 'Kanit', sans-serif;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      padding: 0.5rem 1.15rem;
+      border-radius: 0.75rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(56, 189, 248, 0.35);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(56, 189, 248, 0.45);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #cbd5e1;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #059669, #10b981);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+    }
+
+    /* ==========================================================
+       STUDIO VIEW STYLES
+       ========================================================== */
+    .studio-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 1.05fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 1100px) {
+      .studio-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Upload Area */
+    .upload-zone {
+      border: 2px dashed rgba(56, 189, 248, 0.4);
+      background: rgba(56, 189, 248, 0.03);
+      border-radius: 1.25rem;
+      padding: 2rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      margin-bottom: 1.25rem;
+      position: relative;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.dragover {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.08);
+      transform: scale(1.01);
+    }
+
+    .upload-icon {
+      font-size: 2.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .upload-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.3rem;
+    }
+
+    .upload-sub {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    #file-input {
+      display: none;
+    }
+
+    /* Inspection Canvas */
+    .inspect-stage {
+      position: relative;
+      width: 100%;
+      height: 480px;
+      background: #030610;
+      border-radius: 1.25rem;
+      overflow: hidden;
+      border: 2px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #inspect-img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: none;
+    }
+
+    #inspect-canvas {
+      position: absolute;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
+    .inspect-empty {
+      color: #64748b;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    /* Right: Metrics & Inspection Inspector */
+    .metrics-panel {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .metric-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .badge-success {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #34d399;
+    }
+
+    .badge-warning {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #fbbf24;
+    }
+
+    .angle-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin: 1rem 0;
+    }
+
+    .angle-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 0.85rem;
+      padding: 0.75rem 1rem;
+    }
+
+    .angle-lbl {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-bottom: 0.2rem;
+    }
+
+    .angle-val {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 0.35rem;
+    }
+
+    .form-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 0.75rem;
+      padding: 0.6rem 0.9rem;
+      color: #fff;
+      font-family: 'Kanit', sans-serif;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border 0.2s;
+    }
+
+    .form-input:focus {
+      border-color: #38bdf8;
+    }
+
+    /* Live Webcam Quick Test in Studio */
+    .studio-test-box {
+      margin-top: 1rem;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 1rem;
+      padding: 1rem;
+    }
+
+    /* ==========================================================
+       GAME VIEW STYLES
+       ========================================================== */
+    .game-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 0.95fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 1100px) {
+      .game-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .stage {
+      position: relative;
+      width: 100%;
+      height: 520px;
+      background: #030610;
+      border-radius: 1.25rem;
+      overflow: hidden;
+      border: 2px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #webcam-video {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    #output-canvas {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      pointer-events: none;
+    }
+
+    .hud {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 1.25rem;
+      z-index: 10;
+    }
+
+    .hud-box {
+      background: rgba(10, 15, 29, 0.88);
+      border: 1px solid var(--border-card);
+      backdrop-filter: blur(8px);
+      padding: 0.65rem 1.15rem;
+      border-radius: 1rem;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    .acc-wrap {
+      min-width: 200px;
+    }
+
+    .acc-bar-bg {
+      margin: 0.4rem 0 0.25rem;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .acc-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #f59e0b, #10b981);
+      border-radius: 9999px;
+      transition: width 0.12s ease-out;
+    }
+
+    .acc-row {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 800;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .feedback-bubble {
+      background: rgba(10, 15, 29, 0.92);
+      border: 2px solid rgba(56, 189, 248, 0.4);
+      padding: 0.75rem 1.25rem;
+      border-radius: 1rem;
+      backdrop-filter: blur(10px);
+      max-width: 450px;
+    }
+
+    .fallback-screen {
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 15, 29, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+      z-index: 20;
+    }
+
+    .fallback-screen.hidden {
+      display: none;
+    }
+
+    .target-image-wrapper {
+      position: relative;
+      height: 310px;
+      background: #000;
+      border-radius: 1rem;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    #target-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+    }
+
+    .pose-tabs {
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .pose-tab {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      padding: 0.4rem 0.85rem;
+      border-radius: 0.75rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .pose-tab.active {
+      background: linear-gradient(135deg, #8b5cf6, #38bdf8);
+      border-color: #38bdf8;
+      color: #fff;
+    }
+
+    .glow-success {
+      animation: flashBorder 0.8s ease-out;
+    }
+
+    @keyframes flashBorder {
+      0% {
+        box-shadow: 0 0 50px rgba(16, 185, 129, 0.8);
+        border-color: #10b981;
+      }
+
+      100% {
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+        border-color: var(--border-card);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand-wrap">
+      <div class="brand">
+        <div class="brand-icon">✨</div>
+        <div>
+          <div class="brand-title">Pose Pipeline Platform</div>
+          <div style="font-size: 0.75rem; color: #94a3b8;">MediaPipe Holistic AI Suite</div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="mode-nav">
+        <button class="mode-btn active" id="tab-game" onclick="switchView('game')">
+          <span>🎮</span> โหมดเล่นเกม (Game Player)
+        </button>
+        <button class="mode-btn" id="tab-studio" onclick="switchView('studio')">
+          <span>🛠️</span> สตูดิโออัปโหลด & ตรวจสอบท่า (Pose Studio)
+        </button>
+      </nav>
+    </div>
+
+    <div class="header-stats">
+      <div class="stat-pill">
+        <span>⏱️ เวลา:</span>
+        <span style="color: var(--accent-amber);" id="timer-val">00:00.0</span>
+      </div>
+      <div class="stat-pill">
+        <span>⭐ คะแนน:</span>
+        <span style="color: var(--accent-green);" id="score-val">0</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================
+       VIEW 1: GAME PLAYER
+       ========================================================= -->
+  <div class="view-section active" id="view-game">
+    <div class="game-grid">
+
+      <!-- Left: Webcam -->
+      <div class="app-card" id="game-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+          <div style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+            <span>📹</span> <span>กล้องผู้เล่น (Webcam Feed)</span>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-secondary" id="btn-mirror">🪞 พลิกกระจก</button>
+            <button class="btn btn-primary" id="btn-game-cam">📷 <span id="game-cam-txt">เปิดกล้อง</span></button>
+          </div>
+        </div>
+
+        <div class="stage">
+          <video id="webcam-video" playsinline></video>
+          <canvas id="output-canvas"></canvas>
+
+          <div class="fallback-screen" id="cam-fallback">
+            <div style="font-size: 3.5rem; margin-bottom: 0.75rem;">🤖</div>
+            <h2 style="font-size: 1.35rem; margin-bottom: 0.4rem;">พร้อมเริ่มเล่นเกมท่าทาง</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 440px; margin-bottom: 1.25rem;">
+              กดปุ่มด้านล่างเพื่อเปิดกล้อง Webcam AI จะตรวจจับความถูกต้องเทียบกับรูปต้นแบบแบบสดๆ
+            </p>
+            <button class="btn btn-primary" id="btn-start-now" style="font-size: 1.05rem; padding: 0.65rem 1.75rem;">
+              🚀 เริ่มเปิดกล้องทดสอบ
+            </button>
+          </div>
+
+          <div class="hud">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div class="hud-box acc-wrap">
+                <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 700;">คะแนนความถูกต้อง</div>
+                <div class="acc-bar-bg">
+                  <div class="acc-bar-fill" id="acc-bar"></div>
+                </div>
+                <div class="acc-row">
+                  <span id="acc-pct">0%</span>
+                  <span style="font-size: 0.8rem; font-weight: 500; color: #94a3b8;">เกณฑ์ผ่าน ≥ 70%</span>
+                </div>
+              </div>
+              <div
+                style="background: rgba(10, 15, 29, 0.85); padding: 0.4rem 0.85rem; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.1); font-size: 0.8rem;"
+                id="game-status-pill">
+                🟢 พร้อมเล่น
+              </div>
+            </div>
+
+            <div>
+              <div class="feedback-bubble">
+                <div
+                  style="font-size: 1.2rem; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 0.4rem;"
+                  id="fb-title">
+                  <span>👋</span> <span>พร้อมทดสอบ</span>
+                </div>
+                <div style="font-size: 0.85rem; color: #94a3b8; margin-top: 0.2rem;" id="fb-sub">
+                  ขยับร่างกายตามภาพตัวอย่างด้านขวา
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Target Pose -->
+      <div class="app-card">
+        <div
+          style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+          <span>🎯 ท่าทางเป้าหมาย</span>
+          <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.65rem;"
+            onclick="switchView('studio')">
+            ➕ เพิ่มรูปของคุณเอง
+          </button>
+        </div>
+
+        <div class="pose-tabs" id="pose-tabs"></div>
+
+        <div class="target-image-wrapper">
+          <img id="target-img" src="" alt="Target Pose">
+        </div>
+
+        <h3 id="target-name" style="font-size: 1.35rem; font-weight: 800; margin-bottom: 0.35rem;">-</h3>
+        <p id="target-desc" style="color: #cbd5e1; font-size: 0.92rem; margin-bottom: 1.25rem;">-</p>
+
+        <div style="display: flex; gap: 0.75rem; margin-top: auto;">
+          <button class="btn btn-secondary" id="btn-prev" style="flex: 1;">⬅️ ก่อนหน้า</button>
+          <button class="btn btn-primary" id="btn-next" style="flex: 2;">ถัดไป ➡️</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =========================================================
+       VIEW 2: POSE STUDIO (อัปโหลดและตรวจสอบท่าทาง)
+       ========================================================= -->
+  <div class="view-section" id="view-studio">
+    <div class="studio-grid">
+
+      <!-- Left: Upload & Canvas Inspector -->
+      <div class="app-card">
+        <div
+          style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.4rem;">
+          <span>📤</span> <span>อัปโหลดภาพคนจริงเพื่อสแกนโครงกระดูก</span>
+        </div>
+
+        <!-- Drag & Drop Zone -->
+        <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+          <input type="file" id="file-input" accept="image/*">
+          <div class="upload-icon">📁</div>
+          <div class="upload-title">คลิกที่นี่ หรือ ลากรูปภาพมาวาง</div>
+          <div class="upload-sub">รองรับไฟล์ JPG, PNG (รูปคนเดี่ยวเต็มตัวหรือครึ่งตัว เห็นข้อต่อชัดเจน)</div>
+        </div>
+
+        <!-- Visual Inspection Stage -->
+        <div class="inspect-stage">
+          <img id="inspect-img" alt="Uploaded Inspection">
+          <canvas id="inspect-canvas"></canvas>
+          <div class="inspect-empty" id="inspect-empty">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🔍</div>
+            <div>ยังไม่มีรูปภาพที่อัปโหลด</div>
+            <div style="font-size: 0.85rem; color: #475569; margin-top: 0.25rem;">ลองอัปโหลดรูปภาพเพื่อดูโครงกระดูก AI
+              543 จุด</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Inspector Metrics & Action Form -->
+      <div class="app-card metrics-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <div style="font-size: 1.2rem; font-weight: 700;">📊 ผลการตรวจสอบท่าทาง AI</div>
+          <div id="inspect-status-badge" class="metric-badge badge-warning">⏳ รอรูปภาพ</div>
+        </div>
+
+        <!-- Details Form -->
+        <div class="form-group">
+          <label class="form-label">ชื่อท่าทาง (Pose Name):</label>
+          <input type="text" class="form-input" id="new-pose-name"
+            placeholder="เช่น ท่ายืนกระต่ายขาเดียว, ชูมือซุปเปอร์แมน">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">คำอธิบายท่าสำหรับเด็ก (Instruction):</label>
+          <input type="text" class="form-input" id="new-pose-desc"
+            placeholder="เช่น ยืนตรง ชูมือขวาขึ้นฟ้า เอียงตัวเล็กน้อย">
+        </div>
+
+        <!-- Extracted Angles Display -->
+        <div style="font-weight: 700; font-size: 0.95rem; color: #fff; margin-top: 0.5rem;">
+          📐 องศาข้อต่อที่ AI คำนวณได้จากรูป:
+        </div>
+
+        <div class="angle-grid">
+          <div class="angle-box">
+            <div class="angle-lbl">ข้อศอกซ้าย (Left Elbow)</div>
+            <div class="angle-val" id="insp-left-elbow">--°</div>
+          </div>
+          <div class="angle-box">
+            <div class="angle-lbl">ข้อศอกขวา (Right Elbow)</div>
+            <div class="angle-val" id="insp-right-elbow">--°</div>
+          </div>
+          <div class="angle-box">
+            <div class="angle-lbl">กางแขนซ้าย (Left Shoulder)</div>
+            <div class="angle-val" id="insp-left-shoulder">--°</div>
+          </div>
+          <div class="angle-box">
+            <div class="angle-lbl">กางแขนขวา (Right Shoulder)</div>
+            <div class="angle-val" id="insp-right-shoulder">--°</div>
+          </div>
+        </div>
+
+        <!-- Quality Check Summary -->
+        <div
+          style="background: rgba(0,0,0,0.3); border-radius: 0.75rem; padding: 0.85rem; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 1.25rem;">
+          <div style="font-weight: 700; color: #38bdf8; margin-bottom: 0.25rem;">💡 คำแนะนำความแม่นยำ:</div>
+          <div id="insp-advice">กรุณาอัปโหลดรูปภาพที่มีคนยืนอยู่ในภาพอย่างชัดเจน AI
+            จะดึงโครงกระดูกและบันทึกเป็นเฉลยให้อัตโนมัติ</div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display: flex; gap: 0.75rem; margin-top: auto;">
+          <button class="btn btn-success" id="btn-save-pose" style="flex: 2;" disabled>
+            💾 เพิ่มท่านี้เข้าเกมทันที (Add to Game)
+          </button>
+          <button class="btn btn-secondary" id="btn-export-json" style="flex: 1;" disabled>
+            📥 ส่งออก JSON
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================
+       1. POSE DATABASE (รวมท่ายกตัวอย่าง + ท่าที่อัปโหลดเพิ่ม)
+       ========================================================== */
+    let POSES = [
+      {
+        id: 'pose_peace',
+        name: 'ชู 2 นิ้ว สู้ๆ ✌️ (Peace Sign)',
+        desc: 'ยกมือขึ้นมา ชูนิ้วชี้และนิ้วกลางขึ้นเป็นตัว V เก็บอีกสองนิ้ว',
+        image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80',
+        angles: { leftElbow: 90, rightElbow: 90, leftShoulder: 45, rightShoulder: 45 }
+      },
+      {
+        id: 'pose_highfive',
+        name: 'แบมือทักทาย 🖐️ (Open Palm)',
+        desc: 'ยกมือแบออกหันฝ่ามือเข้าหากล้อง กางนิ้วทั้ง 5 ออก เหมือนทักทายหรือไฮไฟว์',
+        image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=700&q=80',
+        angles: { leftElbow: 90, rightElbow: 90, leftShoulder: 45, rightShoulder: 45 }
+      },
+      {
+        id: 'pose_v_stand',
+        name: 'ชูแขนรูปตัว V ชัยชนะ 🌟',
+        desc: 'ถอยหลังยืนห่างกล้อง 1.5 - 2 เมตร ชูแขนทั้งสองข้างขึ้นฟ้าเฉียงออกด้านข้างรูปตัว V',
+        image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=700&q=80',
+        angles: { leftElbow: 165, rightElbow: 165, leftShoulder: 140, rightShoulder: 140 }
+      },
+      {
+        id: 'pose_airplane',
+        name: 'กางแขนเครื่องบิน ✈️ (T-Pose)',
+        desc: 'ถอยหลังยืนห่างกล้อง กางแขนทั้งสองข้างออกขนานกับพื้นระดับหัวไหล่',
+        image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=700&q=80',
+        angles: { leftElbow: 175, rightElbow: 175, leftShoulder: 90, rightShoulder: 90 }
+      },
+      {
+        id: 'pose_hero',
+        name: 'เท้าเอวยืนเท่ 🦸 (Hero Stance)',
+        desc: 'ถอยหลังยืนตรง สองมือจับที่เอว กางข้อศอกออกสองข้าง ทำท่าเหมือนซุปเปอร์ฮีโร่',
+        image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=700&q=80',
+        angles: { leftElbow: 85, rightElbow: 85, leftShoulder: 40, rightShoulder: 40 }
+      }
+    ];
+
+    let currentIdx = 0;
+    let currentMode = 'game'; // 'game' or 'studio'
+    let cameraRunning = false;
+    let cameraInstance = null;
+    let holisticInstance = null;
+    let isMirrored = true;
+
+    // Game stats
+    let totalScore = 0;
+    let startTime = null;
+    let timerInterval = null;
+    let poseStartTime = null;
+    let holdCount = 0;
+
+    // Studio state
+    let inspectedData = null;
+
+    // View switching
+    function switchView(view) {
+      currentMode = view;
+      document.getElementById('view-game').classList.toggle('active', view === 'game');
+      document.getElementById('view-studio').classList.toggle('active', view === 'studio');
+      document.getElementById('tab-game').classList.toggle('active', view === 'game');
+      document.getElementById('tab-studio').classList.toggle('active', view === 'studio');
+    }
+
+    /* ==========================================================
+       2. MATH UTILITIES: 3-POINT ANGLE CALCULATION
+       ========================================================== */
+    function calculateAngle(A, B, C) {
+      if (!A || !B || !C) return 0;
+      const radians = Math.atan2(C.y - B.y, C.x - B.x) - Math.atan2(A.y - B.y, A.x - B.x);
+      let angle = Math.abs((radians * 180.0) / Math.PI);
+      if (angle > 180.0) angle = 360.0 - angle;
+      return Math.round(angle);
+    }
+
+    /* ==========================================================
+       3. MEDIAPIPE HOLISTIC INITIALIZATION
+       ========================================================== */
+    function initHolistic() {
+      holisticInstance = new Holistic({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
+      });
+
+      holisticInstance.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        enableSegmentation: false,
+        smoothSegmentation: false,
+        refineFaceLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      });
+
+      holisticInstance.onResults(onHolisticResults);
+    }
+
+    /* ==========================================================
+       4. POSE STUDIO: UPLOAD & INSPECTION LOGIC
+       ========================================================== */
+    const fileInput = document.getElementById('file-input');
+    const dropZone = document.getElementById('drop-zone');
+    const inspectImg = document.getElementById('inspect-img');
+    const inspectCanvas = document.getElementById('inspect-canvas');
+    const inspectCtx = inspectCanvas.getContext('2d');
+    const inspectEmpty = document.getElementById('inspect-empty');
+    const inspectStatusBadge = document.getElementById('inspect-status-badge');
+    const inspLeftElbow = document.getElementById('insp-left-elbow');
+    const inspRightElbow = document.getElementById('insp-right-elbow');
+    const inspLeftShoulder = document.getElementById('insp-left-shoulder');
+    const inspRightShoulder = document.getElementById('insp-right-shoulder');
+    const inspAdvice = document.getElementById('insp-advice');
+    const btnSavePose = document.getElementById('btn-save-pose');
+    const btnExportJson = document.getElementById('btn-export-json');
+
+    // Drag and drop handlers
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+    dropZone.ondragleave = () => dropZone.classList.remove('dragover');
+    dropZone.ondrop = (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) handleImageUpload(e.dataTransfer.files[0]);
+    };
+    fileInput.onchange = (e) => {
+      if (e.target.files.length) handleImageUpload(e.target.files[0]);
+    };
+
+    function handleImageUpload(file) {
+      if (!file.type.startsWith('image/')) {
+        alert('กรุณาเลือกไฟล์รูปภาพ (JPG, PNG)');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target.result;
+        inspectImg.src = dataUrl;
+        inspectImg.onload = async () => {
+          inspectEmpty.style.display = 'none';
+          inspectImg.style.display = 'block';
+          inspectStatusBadge.className = 'metric-badge badge-warning';
+          inspectStatusBadge.innerText = '⚡ AI กำลังสแกน...';
+
+          if (!holisticInstance) initHolistic();
+
+          // Pass image to Holistic Scanner
+          await scanUploadedImage(inspectImg, dataUrl);
+        };
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function scanUploadedImage(imgElement, dataUrl) {
+      // Create temporary dedicated scanner to avoid conflict with webcam
+      const tempScanner = new Holistic({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
+      });
+      tempScanner.setOptions({ modelComplexity: 1, smoothLandmarks: false });
+
+      tempScanner.onResults((res) => {
+        // Draw image and skeleton on inspectCanvas
+        inspectCanvas.width = imgElement.naturalWidth || 640;
+        inspectCanvas.height = imgElement.naturalHeight || 480;
+        inspectCtx.clearRect(0, 0, inspectCanvas.width, inspectCanvas.height);
+
+        let validPose = Boolean(res.poseLandmarks);
+        let validHand = Boolean(res.leftHandLandmarks || res.rightHandLandmarks);
+
+        if (!validPose && !validHand) {
+          inspectStatusBadge.className = 'metric-badge badge-warning';
+          inspectStatusBadge.innerText = '❌ ตรวจไม่พบคนในภาพ';
+          inspAdvice.innerText = 'ภาพนี้ AI ไม่พบจุดข้อต่อ กรุณาลองใช้ภาพที่เห็นคนยืนหรือทำท่าชัดเจนขึ้น';
+          btnSavePose.disabled = true;
+          btnExportJson.disabled = true;
+          return;
+        }
+
+        // Draw Pose Skeleton
+        if (res.poseLandmarks) {
+          drawConnectors(inspectCtx, res.poseLandmarks, POSE_CONNECTIONS, { color: '#06b6d4', lineWidth: 4 });
+          drawLandmarks(inspectCtx, res.poseLandmarks, { color: '#38bdf8', fillColor: '#ffffff', lineWidth: 2, radius: 5 });
+        }
+
+        // Draw Hands
+        if (res.leftHandLandmarks) {
+          drawConnectors(inspectCtx, res.leftHandLandmarks, HAND_CONNECTIONS, { color: '#10b981', lineWidth: 3 });
+          drawLandmarks(inspectCtx, res.leftHandLandmarks, { color: '#34d399', fillColor: '#ffffff', radius: 4 });
+        }
+        if (res.rightHandLandmarks) {
+          drawConnectors(inspectCtx, res.rightHandLandmarks, HAND_CONNECTIONS, { color: '#a855f7', lineWidth: 3 });
+          drawLandmarks(inspectCtx, res.rightHandLandmarks, { color: '#c084fc', fillColor: '#ffffff', radius: 4 });
+        }
+
+        // Calculate Extracted Angles
+        let angles = { leftElbow: 0, rightElbow: 0, leftShoulder: 0, rightShoulder: 0 };
+        if (res.poseLandmarks) {
+          const lm = res.poseLandmarks;
+          angles.leftElbow = calculateAngle(lm[11], lm[13], lm[15]);
+          angles.rightElbow = calculateAngle(lm[12], lm[14], lm[16]);
+          angles.leftShoulder = calculateAngle(lm[23], lm[11], lm[13]);
+          angles.rightShoulder = calculateAngle(lm[24], lm[12], lm[14]);
+        }
+
+        inspLeftElbow.innerText = `${angles.leftElbow}°`;
+        inspRightRight(angles.rightElbow);
+        inspLeftShoulder.innerText = `${angles.leftShoulder}°`;
+        inspRightShoulder.innerText = `${angles.rightShoulder}°`;
+
+        inspectStatusBadge.className = 'metric-badge badge-success';
+        inspectStatusBadge.innerText = '✅ สแกนสำเร็จสมบูรณ์';
+        inspAdvice.innerText = 'ตรวจจับโครงสร้างข้อต่อได้ครบถ้วน! คุณสามารถตั้งชื่อท่าแล้วกด "เพิ่มท่านี้เข้าเกม" ได้ทันที';
+
+        // Store inspected data
+        inspectedData = {
+          image: dataUrl,
+          angles: angles,
+          landmarks: res.poseLandmarks || null,
+          hasHands: validHand
+        };
+
+        btnSavePose.disabled = false;
+        btnExportJson.disabled = false;
+        tempScanner.close();
+      });
+
+      await tempScanner.send({ image: imgElement });
+    }
+
+    function inspRightRight(val) {
+      document.getElementById('insp-right-elbow').innerText = `${val}°`;
+    }
+
+    // Save to Game
+    btnSavePose.onclick = () => {
+      if (!inspectedData) return;
+      const name = document.getElementById('new-pose-name').value.trim() || `ท่าที่ ${POSES.length + 1} (กำหนดเอง)`;
+      const desc = document.getElementById('new-pose-desc').value.trim() || 'ทำท่าทางให้ตรงตามรูปต้นแบบ';
+
+      const newPose = {
+        id: `custom_${Date.now()}`,
+        name: name,
+        desc: desc,
+        image: inspectedData.image,
+        angles: inspectedData.angles
+      };
+
+      POSES.push(newPose);
+      alert(`🎉 เพิ่มท่า "${name}" เข้าสู่เกมสำเร็จแล้ว! คุณสามารถสลับไปเล่นในโหมดเกมได้เลย`);
+      switchPose(POSES.length - 1);
+      switchView('game');
+    };
+
+    // Export JSON
+    btnExportJson.onclick = () => {
+      if (!inspectedData) return;
+      const exportObj = {
+        poseName: document.getElementById('new-pose-name').value || 'New Pose',
+        instruction: document.getElementById('new-pose-desc').value || '',
+        extractedAngles: inspectedData.angles,
+        createdAt: new Date().toISOString()
+      };
+      const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `pose_calibration_${Date.now()}.json`;
+      a.click();
+    };
+
+    /* ==========================================================
+       5. GAME PLAY LOGIC
+       ========================================================== */
+    const targetImg = document.getElementById('target-img');
+    const targetName = document.getElementById('target-name');
+    const targetDesc = document.getElementById('target-desc');
+    const poseTabs = document.getElementById('pose-tabs');
+    const accBar = document.getElementById('acc-bar');
+    const accPct = document.getElementById('acc-pct');
+    const fbTitle = document.getElementById('fb-title');
+    const fbSub = document.getElementById('fb-sub');
+    const timerVal = document.getElementById('timer-val');
+    const scoreVal = document.getElementById('score-val');
+    const gameCard = document.getElementById('game-card');
+
+    function renderPoseTabs() {
+      poseTabs.innerHTML = '';
+      POSES.forEach((p, idx) => {
+        const btn = document.createElement('button');
+        btn.className = `pose-tab ${idx === currentIdx ? 'active' : ''}`;
+        btn.innerText = `ท่าที่ ${idx + 1}: ${p.name.split(' ')[0]}`;
+        btn.onclick = () => switchPose(idx);
+        poseTabs.appendChild(btn);
+      });
+    }
+
+    function switchPose(idx) {
+      currentIdx = idx;
+      holdCount = 0;
+      poseStartTime = Date.now();
+      const current = POSES[currentIdx];
+
+      targetImg.src = current.image;
+      targetName.innerText = current.name;
+      targetDesc.innerText = current.desc;
+
+      renderPoseTabs();
+    }
+
+    function updateTimer() {
+      if (!startTime) return;
+      const elapsed = Date.now() - startTime;
+      const sec = Math.floor(elapsed / 1000);
+      const m = Math.floor(sec / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      const ms = Math.floor((elapsed % 1000) / 100);
+      timerVal.innerText = `${m}:${s}.${ms}`;
+    }
+
+    // Audio Chimes
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+    function playSound(freq, dur = 0.15) {
+      try {
+        if (!audioCtx) audioCtx = new AudioContextClass();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        g.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); o.stop(audioCtx.currentTime + dur);
+      } catch (e) { }
+    }
+    function playWinSound() {
+      setTimeout(() => playSound(523.25), 0);
+      setTimeout(() => playSound(659.25), 100);
+      setTimeout(() => playSound(783.99), 200);
+      setTimeout(() => playSound(1046.5), 300);
+    }
+
+    /* ==========================================================
+       6. WEBCAM STREAM & REAL-TIME EVALUATION
+       ========================================================== */
+    const video = document.getElementById('webcam-video');
+    const canvas = document.getElementById('output-canvas');
+    const ctx = canvas.getContext('2d');
+    const camFallback = document.getElementById('cam-fallback');
+    const btnGameCam = document.getElementById('btn-game-cam');
+    const gameCamTxt = document.getElementById('game-cam-txt');
+
+    async function startCamera() {
+      try {
+        camFallback.classList.add('hidden');
+        if (!holisticInstance) initHolistic();
+
+        cameraInstance = new Camera(video, {
+          onFrame: async () => {
+            if (cameraRunning && currentMode === 'game') {
+              await holisticInstance.send({ image: video });
+            }
+          },
+          width: 1280, height: 720
+        });
+
+        await cameraInstance.start();
+        cameraRunning = true;
+        gameCamTxt.innerText = 'ปิดกล้อง';
+
+        if (!startTime) {
+          startTime = Date.now();
+          poseStartTime = Date.now();
+          timerInterval = setInterval(updateTimer, 100);
+        }
+      } catch (err) {
+        alert('ไม่สามารถเปิดกล้องได้: ' + err.message);
+        camFallback.classList.remove('hidden');
+      }
+    }
+
+    function stopCamera() {
+      if (cameraInstance) { cameraInstance.stop(); cameraInstance = null; }
+      cameraRunning = false;
+      gameCamTxt.innerText = 'เปิดกล้อง';
+      camFallback.classList.remove('hidden');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function onHolisticResults(res) {
+      if (currentMode !== 'game') return;
+
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (res.poseLandmarks) {
+        drawConnectors(ctx, res.poseLandmarks, POSE_CONNECTIONS, { color: '#06b6d4', lineWidth: 4 });
+        drawLandmarks(ctx, res.poseLandmarks, { color: '#38bdf8', fillColor: '#ffffff', lineWidth: 2, radius: 4 });
+      }
+      if (res.leftHandLandmarks) {
+        drawConnectors(ctx, res.leftHandLandmarks, HAND_CONNECTIONS, { color: '#10b981', lineWidth: 3 });
+        drawLandmarks(ctx, res.leftHandLandmarks, { color: '#34d399', fillColor: '#ffffff', radius: 3 });
+      }
+      if (res.rightHandLandmarks) {
+        drawConnectors(ctx, res.rightHandLandmarks, HAND_CONNECTIONS, { color: '#a855f7', lineWidth: 3 });
+        drawLandmarks(ctx, res.rightHandLandmarks, { color: '#c084fc', fillColor: '#ffffff', radius: 3 });
+      }
+
+      // Comparison Engine with Active Pose
+      const current = POSES[currentIdx];
+      let matchScore = 0;
+
+      if (res.poseLandmarks && current.angles) {
+        const lm = res.poseLandmarks;
+        const curLeftElbow = calculateAngle(lm[11], lm[13], lm[15]);
+        const curRightElbow = calculateAngle(lm[12], lm[14], lm[16]);
+        const curLeftShoulder = calculateAngle(lm[23], lm[11], lm[13]);
+        const curRightShoulder = calculateAngle(lm[24], lm[12], lm[14]);
+
+        // Difference tolerances
+        const d1 = Math.max(0, 100 - (Math.abs(curLeftElbow - current.angles.leftElbow) * 1.5));
+        const d2 = Math.max(0, 100 - (Math.abs(curRightElbow - current.angles.rightElbow) * 1.5));
+        const d3 = Math.max(0, 100 - (Math.abs(curLeftShoulder - current.angles.leftShoulder) * 1.5));
+        const d4 = Math.max(0, 100 - (Math.abs(curRightShoulder - current.angles.rightShoulder) * 1.5));
+
+        matchScore = Math.round((d1 + d2 + d3 + d4) / 4);
+      } else if (res.leftHandLandmarks || res.rightHandLandmarks) {
+        matchScore = 75; // Hand gesture match
+      }
+
+      accBar.style.width = `${matchScore}%`;
+      accPct.innerText = `${matchScore}%`;
+
+      if (matchScore >= 70) {
+        accBar.style.background = 'linear-gradient(90deg, #10b981, #22c55e)';
+        holdCount++;
+        fbTitle.innerHTML = `<span>🔥</span> <span style="color: #22c55e;">ท่าตรงเป๊ะ! เยี่ยมมาก!</span>`;
+        fbSub.innerText = `ค้างท่าไว้สักครู่... (${holdCount}/8 เฟรม)`;
+
+        if (holdCount >= 8) {
+          onPoseSuccess();
+        }
+      } else {
+        holdCount = Math.max(0, holdCount - 1);
+        accBar.style.background = 'linear-gradient(90deg, #f59e0b, #eab308)';
+        fbTitle.innerHTML = `<span>👉</span> <span>ปรับท่าทางให้ตรงตามรูป</span>`;
+        fbSub.innerText = `ขยับแขน/ข้อศอกให้ใกล้เคียงกับองศาในรูปต้นแบบ`;
+      }
+    }
+
+    function onPoseSuccess() {
+      holdCount = 0;
+      playWinSound();
+
+      const elapsedSec = Math.max(1, (Date.now() - (poseStartTime || Date.now())) / 1000);
+      let bonus = elapsedSec <= 3 ? 150 : (elapsedSec <= 6 ? 100 : 50);
+      totalScore += bonus;
+      scoreVal.innerText = totalScore;
+
+      gameCard.classList.add('glow-success');
+      setTimeout(() => gameCard.classList.remove('glow-success'), 800);
+      confetti({ particleCount: 90, spread: 75, origin: { y: 0.6 } });
+
+      fbTitle.innerHTML = `<span>🎉</span> <span style="color: #22c55e;">สำเร็จ! +${bonus} แต้ม!</span>`;
+
+      setTimeout(() => {
+        if (currentIdx < POSES.length - 1) switchPose(currentIdx + 1);
+        else {
+          fbTitle.innerHTML = `<span>🏆</span> <span style="color: #f59e0b;">ยินดีด้วย! ผ่านครบทุกท่าแล้ว!</span>`;
+          confetti({ particleCount: 200, spread: 120 });
+        }
+      }, 1200);
+    }
+
+    // Listeners
+    btnGameCam.onclick = () => cameraRunning ? stopCamera() : startCamera();
+    document.getElementById('btn-start-now').onclick = startCamera;
+    document.getElementById('btn-mirror').onclick = () => {
+      isMirrored = !isMirrored;
+      const t = isMirrored ? 'scaleX(-1)' : 'scaleX(1)';
+      video.style.transform = t; canvas.style.transform = t;
+    };
+    document.getElementById('btn-prev').onclick = () => { if (currentIdx > 0) switchPose(currentIdx - 1); };
+    document.getElementById('btn-next').onclick = () => { if (currentIdx < POSES.length - 1) switchPose(currentIdx + 1); else switchPose(0); };
+
+    // Start on first pose
+    switchPose(0);
+  </script>
+</body>
+
+</html>

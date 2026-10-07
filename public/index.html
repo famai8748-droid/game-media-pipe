@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DMI YOGA - Fullscreen Arcade Pose Battle</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- MediaPipe Tasks Vision (PoseLandmarker) is loaded on demand by app.js -->
+  
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+
+
+  <!-- TOP HEADER -->
+  <header>
+    <div class="brand-box">
+      <div class="q-block">?</div>
+      <div>
+        <div class="title-dmi">DMI YOGA</div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="top-nav">
+      <button class="nav-tab-btn active" id="tab-game" onclick="switchAppTab('game')">
+        <span>🎮</span> PLAY ARENA
+      </button>
+      <button class="nav-tab-btn" id="tab-studio" onclick="switchAppTab('studio')">
+        <span>🛠️</span> POSE STUDIO
+      </button>
+      <button class="nav-tab-btn" id="tab-scores" onclick="switchAppTab('scores')">
+        <span>🏆</span> LEADERBOARD
+      </button>
+    </nav>
+
+    <!-- Header Actions -->
+    <div class="header-actions">
+      <button class="btn-retro btn-yellow" id="btn-sound-toggle">🔊 SFX ON</button>
+      <button class="btn-retro btn-red" id="btn-header-start">🍄 START MENU</button>
+    </div>
+  </header>
+
+  <!-- ==========================================================
+       VIEW 1: FULLSCREEN EDGE-TO-EDGE GAME ARENA
+       (Unified Fullscreen Stage with Duo Split Zone System)
+       ========================================================== -->
+  <main class="arena-fullscreen-container" id="view-arena">
+
+    <!-- MARIO WORLD FRAME: sky scenery behind the camera -->
+    <div class="mario-backdrop" aria-hidden="true">
+      <div class="sky-cloud cloud-l1"></div>
+      <div class="sky-cloud cloud-l2"></div>
+      <div class="sky-cloud cloud-r1"></div>
+      <div class="sky-cloud cloud-r2"></div>
+    </div>
+
+    <!-- MARIO WORLD FRAME: props around the camera edges (mushroom & star removed so they never block player avatars) -->
+    <div class="mario-props" aria-hidden="true">
+      <div class="deco-sprite deco-coin" data-sprite="coin"></div>
+      <div class="deco-qblock deco-q-left">?</div>
+
+      <div class="deco-stack-right">
+        <div class="deco-brick"></div>
+        <div class="deco-qblock">?</div>
+        <div class="deco-brick"></div>
+      </div>
+
+      <div class="deco-pipe pipe-left"></div>
+      <div class="deco-pipe pipe-right"></div>
+      <div class="deco-bush bush-l"></div>
+      <div class="deco-bush bush-r"></div>
+      <div class="deco-ground"></div>
+    </div>
+
+    <!-- ==========================================================
+         TOP TARGET BANNER: SOLO MODE (Center floating card)
+         ========================================================== -->
+    <div class="floating-target-banner" id="banner-solo">
+      <div class="target-badge-col">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span class="category-tag tag-yoga" id="target-tag">YOGA</span>
+          <span class="tech-badge-mediapipe">🤖 MEDIAPIPE AI</span>
+        </div>
+        <div class="target-name-text solo-title" id="target-name">Loading Pose...</div>
+      </div>
+
+      <!-- Target Pose Reference (MediaPipe Vector Skeleton) — ENLARGED -->
+      <div class="target-img-frame solo-target-frame" title="MediaPipe Pose Guide Skeleton">
+        <img id="target-img" src="" alt="MediaPipe Pose Guide">
+      </div>
+
+      <!-- Match Timer -->
+      <div class="match-timer-box">
+        <div class="timer-lbl">TIME LEFT</div>
+        <div class="timer-num" id="timer-display">01:00</div>
+      </div>
+    </div>
+
+    <!-- ==========================================================
+         TOP TARGET BANNER: DUO MODE (Separated for P1 & P2)
+         - Both players start with the exact same pose
+         - P1 and P2 advance independently when matching their target
+         ========================================================== -->
+    <div class="duo-target-container" id="banner-duo" style="display: none;">
+
+      <!-- P1 Dedicated Target Card -->
+      <div class="duo-player-card p1-duo-card" id="hud-p1">
+        <div class="duo-card-header">
+          <div class="duo-header-left">
+            <img id="p1-ingame-avatar" class="ingame-fighter-avatar" src="images/characters/goku.jpg" alt="P1 Avatar">
+            <span class="player-tag tag-mario" id="p1-ingame-label">🔴 P1 (GOKU)</span>
+            <span class="category-tag tag-yoga" id="target-tag-p1">YOGA</span>
+          </div>
+          <div class="duo-header-right">
+            <span class="pose-step-badge" id="target-step-p1">POSE #1</span>
+            <div class="duo-score-pill">🪙 <span id="p1-score">0</span> <span class="pts-unit">PTS</span></div>
+          </div>
+        </div>
+
+        <div class="duo-card-body">
+          <!-- Large Target Pose Image for P1 -->
+          <div class="target-img-frame duo-target-frame p1-border-glow" title="Player 1 Target Pose">
+            <img id="target-img-p1" src="" alt="P1 Target Pose Guide">
+          </div>
+          <div class="duo-card-title-col">
+            <div class="target-name-text duo-pose-title" id="target-name-p1">Loading Pose...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center Match Timer & Animated VS Badge -->
+      <div class="duo-center-timer-wrap" id="timer-display-duo-box">
+        <div class="duo-center-vs-badge">VS</div>
+        <div class="match-timer-box duo-timer-inner">
+          <div class="timer-lbl">TIME LEFT</div>
+          <div class="timer-num" id="timer-display-duo">01:00</div>
+        </div>
+      </div>
+
+      <!-- P2 Dedicated Target Card -->
+      <div class="duo-player-card p2-duo-card" id="hud-p2">
+        <div class="duo-card-header">
+          <div class="duo-header-left">
+            <div class="duo-score-pill">🪙 <span id="p2-score">0</span> <span class="pts-unit">PTS</span></div>
+            <span class="pose-step-badge" id="target-step-p2">POSE #1</span>
+          </div>
+          <div class="duo-header-right">
+            <span class="category-tag tag-yoga" id="target-tag-p2">YOGA</span>
+            <span class="player-tag tag-luigi" id="p2-ingame-label">🟢 P2 (NARUTO)</span>
+            <img id="p2-ingame-avatar" class="ingame-fighter-avatar" src="images/characters/naruto.jpg" alt="P2 Avatar">
+          </div>
+        </div>
+
+        <div class="duo-card-body duo-body-reverse">
+          <div class="duo-card-title-col">
+            <div class="target-name-text duo-pose-title" id="target-name-p2">Loading Pose...</div>
+          </div>
+          <!-- Large Target Pose Image for P2 -->
+          <div class="target-img-frame duo-target-frame p2-border-glow" title="Player 2 Target Pose">
+            <img id="target-img-p2" src="" alt="P2 Target Pose Guide">
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- UNIFIED FULLSCREEN CAMERA STAGE -->
+    <div class="camera-main-stage" id="camera-main-stage">
+      <video id="webcam-video" playsinline muted></video>
+      <canvas id="webcam-canvas"></canvas>
+
+      <!-- DUO CENTER ZONE DIVIDER (Shown in Duo Mode) -->
+      <div class="duo-zone-divider" id="duo-zone-divider">
+        <div class="duo-vs-badge">VS</div>
+        <div class="zone-tag-left">🔴 ZONE 1 (P1)</div>
+        <div class="zone-tag-right">🟢 ZONE 2 (P2)</div>
+      </div>
+
+      <!-- CORNER HUD: SOLO MODE ONLY -->
+      <div class="corner-hud-solo" id="hud-solo">
+        <div class="hud-player-title">
+          <span>👤 PLAYER 1</span>
+          <span style="color: #94a3b8; font-size: 0.65rem;">SOLO</span>
+        </div>
+        <div class="hud-score">
+          <span>🪙</span> <span id="p-solo-score">0</span> <span style="font-size: 0.7rem; color: #94a3b8;">PTS</span>
+        </div>
+      </div>
+
+      <!-- BOTTOM HUD DOCK: DUO MODE (Separated for P1 & P2 with subtle text & gauge bar) -->
+      <div class="bottom-hud-duo-container" id="bottom-hud-duo" style="display: none;">
+        <!-- P1 Bottom Dock (Left Zone) -->
+        <div class="bottom-hud-card p1-bottom-dock">
+          <div class="bottom-guide-row">
+            <span class="bottom-guide-icon">💡</span>
+            <div class="bottom-guide-text" id="target-desc-p1">Match your body to the pose guide</div>
+          </div>
+          <div class="bottom-gauge-row">
+            <span class="bottom-player-badge p1-badge">🔴 P1</span>
+            <div class="bottom-gauge-track">
+              <div class="bottom-gauge-fill p1-fill" id="acc-bar-p1"></div>
+            </div>
+            <div class="bottom-gauge-info">
+              <span class="bottom-acc-val" id="acc-val-p1">0%</span>
+              <span class="bottom-acc-hint p1-hint">PASS ≥ 72%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- P2 Bottom Dock (Right Zone) -->
+        <div class="bottom-hud-card p2-bottom-dock">
+          <div class="bottom-guide-row">
+            <span class="bottom-guide-icon">💡</span>
+            <div class="bottom-guide-text" id="target-desc-p2">Match your body to the pose guide</div>
+          </div>
+          <div class="bottom-gauge-row">
+            <span class="bottom-player-badge p2-badge">🟢 P2</span>
+            <div class="bottom-gauge-track">
+              <div class="bottom-gauge-fill p2-fill" id="acc-bar-p2"></div>
+            </div>
+            <div class="bottom-gauge-info">
+              <span class="bottom-acc-val" id="acc-val-p2">0%</span>
+              <span class="bottom-acc-hint p2-hint">PASS ≥ 72%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM HUD DOCK: SOLO MODE (Subtle text & gauge bar) -->
+      <div class="bottom-hud-solo-container" id="bottom-hud-solo">
+        <div class="bottom-hud-card solo-bottom-dock">
+          <div class="bottom-guide-row">
+            <span class="bottom-guide-icon">💡</span>
+            <div class="bottom-guide-text" id="target-desc">Match your body to the pose guide</div>
+          </div>
+          <div class="bottom-gauge-row">
+            <span class="bottom-player-badge solo-badge">👤 SOLO</span>
+            <div class="bottom-gauge-track">
+              <div class="bottom-gauge-fill solo-fill" id="acc-bar-solo"></div>
+            </div>
+            <div class="bottom-gauge-info">
+              <span class="bottom-acc-val" id="acc-val-solo">0%</span>
+              <span class="bottom-acc-hint solo-hint">PASS ≥ 72%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HIDDEN FEEDBACK REFERENCE FOR COMPATIBILITY -->
+      <div class="floating-bottom-pill" id="fb-pill" style="display: none !important;">
+        <span id="fb-text"></span>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ==========================================================
+       VIEW 2: POSE STUDIO (Upload, Inspect & Save to DB)
+       ========================================================= -->
+  <main class="view-panel" id="view-studio">
+    <div class="studio-container">
+
+      <!-- Left: File Upload & Inspection Preview -->
+      <div class="studio-panel">
+        <div style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
+          <span>📤</span> <span>Upload Pose Image to Inspect Joint Skeleton</span>
+        </div>
+
+        <div class="upload-dropzone" id="studio-dropzone">
+          <input type="file" id="studio-file-input" accept="image/*" style="display: none;">
+          <div style="font-size: 3rem; margin-bottom: 0.4rem;">📁</div>
+          <div style="font-weight: 700; font-size: 1.1rem; color: #fff; margin-bottom: 0.2rem;">
+            Click here or Drag & Drop image
+          </div>
+          <div style="color: #94a3b8; font-size: 0.85rem;">
+            Supports JPG / PNG (Clear full-body or upper-body pose)
+          </div>
+        </div>
+
+        <!-- Inspection Canvas -->
+        <div class="inspect-canvas-wrapper">
+          <img id="studio-img" alt="Inspected Pose">
+          <canvas id="studio-canvas"></canvas>
+        </div>
+
+        <div class="studio-edit-bar">
+          <span class="studio-edit-hint">
+            ✋ Drag the dots to fix joints &nbsp;
+            <span class="dot dot-left"></span> Left &nbsp;
+            <span class="dot dot-right"></span> Right &nbsp;
+            <span class="dot dot-head"></span> Head
+          </span>
+          <button class="btn-retro" id="studio-btn-reset" type="button" disabled>↺ Reset Skeleton</button>
+        </div>
+      </div>
+
+      <!-- Right: Form & Extracted Angle Inspector -->
+      <div class="studio-panel" style="display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+          <div style="font-size: 1.2rem; font-weight: 700;">📊 AI Joint Angle Results</div>
+          <span class="category-tag tag-anime" id="studio-status-badge">⏳ Waiting for Image</span>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #cbd5e1; margin-bottom: 0.35rem;">
+            Pose Name:
+          </label>
+          <input type="text" id="new-pose-title" placeholder="e.g. Crane Stance, Superman Flight" style="width: 100%; background: #000; border: 2px solid rgba(255,255,255,0.2); border-radius: 0.65rem; padding: 0.6rem 0.85rem; color: #fff; font-family: 'Kanit'; outline: none;">
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #cbd5e1; margin-bottom: 0.35rem;">
+            Category:
+          </label>
+          <select id="new-pose-cat" style="width: 100%; background: #000; border: 2px solid rgba(255,255,255,0.2); border-radius: 0.65rem; padding: 0.6rem 0.85rem; color: #fff; font-family: 'Kanit'; outline: none;">
+            <option value="yoga">🧘 Yoga Pose</option>
+            <option value="hero">🦸 Superhero Pose</option>
+            <option value="anime">⚡ Anime Pose</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 1.25rem;">
+          <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #cbd5e1; margin-bottom: 0.35rem;">
+            Instruction Guide:
+          </label>
+          <input type="text" id="new-pose-inst" placeholder="e.g. Stand straight, raise right arm, lean slightly" style="width: 100%; background: #000; border: 2px solid rgba(255,255,255,0.2); border-radius: 0.65rem; padding: 0.6rem 0.85rem; color: #fff; font-family: 'Kanit'; outline: none;">
+        </div>
+
+        <!-- Extracted Angles Matrix -->
+        <div style="font-weight: 700; font-size: 0.95rem; color: #ffe600; margin-bottom: 0.5rem;">
+          📐 Solved Joint Angles:
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.5rem;">
+          <div style="background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.1); border-radius: 0.65rem; padding: 0.6rem; text-align: center;">
+            <div style="font-size: 0.75rem; color: #94a3b8;">Left Elbow (L-Elbow)</div>
+            <div class="pixel-font" id="insp-le" style="font-size: 1.3rem; color: #38bdf8;">--°</div>
+          </div>
+          <div style="background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.1); border-radius: 0.65rem; padding: 0.6rem; text-align: center;">
+            <div style="font-size: 0.75rem; color: #94a3b8;">Right Elbow (R-Elbow)</div>
+            <div class="pixel-font" id="insp-re" style="font-size: 1.3rem; color: #38bdf8;">--°</div>
+          </div>
+          <div style="background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.1); border-radius: 0.65rem; padding: 0.6rem; text-align: center;">
+            <div style="font-size: 0.75rem; color: #94a3b8;">Left Shoulder (L-Shoulder)</div>
+            <div class="pixel-font" id="insp-ls" style="font-size: 1.3rem; color: #38bdf8;">--°</div>
+          </div>
+          <div style="background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.1); border-radius: 0.65rem; padding: 0.6rem; text-align: center;">
+            <div style="font-size: 0.75rem; color: #94a3b8;">Right Shoulder (R-Shoulder)</div>
+            <div class="pixel-font" id="insp-rs" style="font-size: 1.3rem; color: #38bdf8;">--°</div>
+          </div>
+        </div>
+
+        <button class="btn-retro btn-green" id="studio-btn-save" style="margin-top: auto; padding: 0.85rem; font-size: 0.9rem;" disabled>
+          💾 Save Pose to Database
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ==========================================================
+       VIEW 3: LEADERBOARD & STATS
+       ========================================================== -->
+  <main class="view-panel" id="view-leaderboard">
+    <div style="max-width: 900px; margin: 0 auto; background: rgba(15, 23, 42, 0.95); border: 3px solid #000; border-radius: 1.5rem; padding: 2rem; box-shadow: 0 8px 0 #000;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <div class="coin-badge">🪙 COIN RECORD</div>
+          <h2 class="pixel-font" style="font-size: 1.4rem; color: #ffe600;">TOP MATCH RECORDS</h2>
+        </div>
+        <button class="btn-retro btn-blue" onclick="loadLeaderboard()">🔄 REFRESH</button>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+          <tr style="border-bottom: 2px solid rgba(255,255,255,0.2); font-family: 'KarmaticArcade'; font-size: 0.75rem; color: #94a3b8;">
+            <th style="padding: 0.75rem;">RANK</th>
+            <th style="padding: 0.75rem;">MODE</th>
+            <th style="padding: 0.75rem;">PLAYER 1</th>
+            <th style="padding: 0.75rem;">PLAYER 2</th>
+            <th style="padding: 0.75rem;">WINNER</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-tbody"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- ==========================================================
+       MODAL 1: START MENU (Solo vs Duo, 1-3 Minutes)
+       ========================================================== -->
+  <div class="modal-overlay" id="start-menu-modal" onclick="onOverlayClick(event, 'start-menu-modal')">
+    <div class="start-menu-card" style="position: relative;">
+      <!-- Close Button -->
+      <button class="btn-close-modal" onclick="closeStartMenuModal()" title="Close">✖</button>
+
+      <div class="q-block" style="margin-bottom: 0.5rem;">?</div>
+      <h1 class="title-dmi" style="font-size: 2.3rem; margin-bottom: 0.25rem;">DMI YOGA</h1>
+      <p style="color: #94a3b8; font-size: 0.95rem;">Select Game Mode and Match Duration</p>
+
+      <!-- Mode Selector -->
+      <div class="menu-options-grid">
+        <div class="menu-choice-btn selected" id="opt-solo">
+          <div style="font-size: 2.5rem; margin-bottom: 0.4rem;">👤</div>
+          <div class="pixel-font" style="font-size: 1.1rem; margin-bottom: 0.2rem;">SOLO MODE</div>
+          <div style="font-size: 0.8rem; color: #cbd5e1;">Single player, set high scores</div>
+        </div>
+
+        <div class="menu-choice-btn" id="opt-duo">
+          <div style="font-size: 2.5rem; margin-bottom: 0.4rem;">👥</div>
+          <div class="pixel-font" style="font-size: 1.1rem; margin-bottom: 0.2rem; color: #4ade80;">DUO 1v1</div>
+          <div style="font-size: 0.8rem; color: #cbd5e1;">2 Players split screen speed battle!</div>
+        </div>
+      </div>
+
+      <!-- Duration Selector (1-3 Minutes) -->
+      <div style="font-size: 0.85rem; font-weight: 700; color: #ffe600; margin-bottom: 0.6rem;">
+        ⏱️ Match Duration:
+      </div>
+
+      <div class="duration-row">
+        <button class="dur-btn selected" data-sec="60">1 MINUTE</button>
+        <button class="dur-btn" data-sec="120">2 MINUTES</button>
+        <button class="dur-btn" data-sec="180">3 MINUTES</button>
+      </div>
+
+      <!-- Start Button -->
+      <button class="btn-retro btn-green" id="btn-modal-start" style="font-size: 1.15rem; padding: 0.85rem 2.5rem;">
+        🍄 START GAME !
+      </button>
+    </div>
+  </div>
+
+  <!-- ==========================================================
+       MODAL 2: DUO 1v1 ANIME CHARACTER SELECT & NAME ENTRY
+       (Fighting Game / MUGEN Arcade Select Screen based on uploaded photo)
+       ========================================================== -->
+  <div class="modal-overlay hidden" id="char-select-modal" onclick="onOverlayClick(event, 'char-select-modal')">
+    <div class="char-select-arcade-card">
+
+      <!-- CRT Scanline & Retro Arcade Ambient Effect -->
+      <div class="arcade-scanlines" aria-hidden="true"></div>
+
+      <!-- Arcade Top Title Bar -->
+      <div class="arcade-title-header">
+        <div class="arcade-tag-row">
+          <span class="arcade-blink-tag">🔴 1P VS 2P 🟢</span>
+          <span class="arcade-mode-badge">DUO ANIME BATTLE</span>
+        </div>
+        <h2 class="arcade-main-title">⚔️ CHARACTER SELECT ⚔️</h2>
+        <div class="arcade-select-hint" id="select-prompt-text">
+          👉 Choose your anime champion and enter your player names!
+        </div>
+        <button class="btn-close-modal" onclick="closeCharSelectModal()" title="Close">✖</button>
+      </div>
+
+      <!-- Active Player Selection Indicator / Switcher -->
+      <div class="player-turn-bar">
+        <button class="turn-select-pill active-turn" id="pill-select-p1" onclick="setActiveSelectPlayer('p1')">
+          <span>🔴</span> <span>SELECT FOR PLAYER 1</span>
+        </button>
+        <div class="turn-vs-glow">VS</div>
+        <button class="turn-select-pill" id="pill-select-p2" onclick="setActiveSelectPlayer('p2')">
+          <span>🟢</span> <span>SELECT FOR PLAYER 2</span>
+        </button>
+      </div>
+
+      <!-- Main Arcade Stage Layout: P1 Left - Center Roster Grid - P2 Right -->
+      <div class="char-select-stage">
+
+        <!-- ================= LEFT: PLAYER 1 (1P) ================= -->
+        <div class="fighter-side-panel p1-side active-selection" id="p1-fighter-panel">
+          <div class="panel-header-badge badge-p1">
+            <span class="p-num">1P</span> <span id="p1-panel-label">PLAYER 1</span>
+          </div>
+
+          <!-- Big Portrait Artwork Frame -->
+          <div class="big-portrait-frame p1-frame" id="p1-portrait-frame">
+            <img id="p1-portrait-img" src="images/characters/goku.jpg" alt="P1 Selected Fighter">
+            <div class="portrait-scanline"></div>
+            <div class="corner-bracket top-left"></div>
+            <div class="corner-bracket top-right"></div>
+            <div class="corner-bracket bottom-left"></div>
+            <div class="corner-bracket bottom-right"></div>
+          </div>
+
+          <!-- Character Details -->
+          <div class="fighter-info-box">
+            <div class="fighter-anime-tag" id="p1-anime-tag">DRAGON BALL Z</div>
+            <div class="fighter-name-display" id="p1-name-display">SON GOKU</div>
+            <div class="fighter-thai-name" id="p1-thai-display">Kakarot - Saiyan God</div>
+            <div class="fighter-quote-bubble" id="p1-quote-display">"KAMEHAMEHA! Transcending beyond mortal limits!"</div>
+          </div>
+
+          <!-- Player 1 Custom Name Input -->
+          <div class="player-name-entry-box">
+            <label for="p1-name-input" class="name-entry-lbl">
+              <span>✍️ Player 1 Name:</span>
+            </label>
+            <input type="text" id="p1-name-input" value="Player 1" maxlength="15" placeholder="Enter name e.g. Goku, Alex..." class="arcade-name-input p1-input">
+          </div>
+
+          <!-- Lock-in & Random Pick Buttons -->
+          <div style="display: flex; gap: 0.5rem; width: 100%;">
+            <button class="btn-lock-fighter btn-lock-p1" id="btn-lock-p1" onclick="toggleLockIn('p1')" style="flex: 1;">
+              🔴 LOCK IN P1
+            </button>
+            <button type="button" class="btn-retro btn-blue" onclick="randomSelectFighter('p1')" title="Randomize Fighter for Player 1" style="font-size: 0.72rem; padding: 0.45rem 0.65rem;">
+              🎲 RANDOM
+            </button>
+          </div>
+          <div class="lock-status-indicator" id="p1-lock-indicator">⏳ Selecting Fighter...</div>
+        </div>
+
+        <!-- ================= CENTER: ARCADE ROSTER GRID ================= -->
+        <div class="roster-grid-center">
+          <div class="roster-grid-header">
+            <span>⚡ ANIME CHAMPIONS ROSTER ⚡</span>
+          </div>
+
+          <!-- Character Tiles Grid (12 Anime Champions) -->
+          <div class="arcade-roster-grid" id="arcade-roster-grid">
+            <!-- Rendered dynamically by app.js -->
+          </div>
+
+          <!-- Fighting Stats Preview Panel -->
+          <div class="char-stats-preview-box">
+            <div class="stats-preview-title" id="stats-char-name">SON GOKU - STATS</div>
+            <div class="stats-row">
+              <span class="stat-lbl">POWER:</span>
+              <div class="stat-bar-track"><div class="stat-bar-fill" id="stat-power-fill" style="width: 98%;"></div></div>
+            </div>
+            <div class="stats-row">
+              <span class="stat-lbl">SPEED:</span>
+              <div class="stat-bar-track"><div class="stat-bar-fill" id="stat-speed-fill" style="width: 95%;"></div></div>
+            </div>
+            <div class="stats-row">
+              <span class="stat-lbl">ENERGY:</span>
+              <div class="stat-bar-track"><div class="stat-bar-fill" id="stat-energy-fill" style="width: 99%;"></div></div>
+            </div>
+          </div>
+
+          <!-- Dual Ready Confirmation & Launch Battle Button -->
+          <button class="btn-retro btn-battle-start" id="btn-start-duo-battle" onclick="confirmDuoBattle()" disabled>
+            ⚔️ START FIGHT! ⚔️
+          </button>
+        </div>
+
+        <!-- ================= RIGHT: PLAYER 2 (2P) ================= -->
+        <div class="fighter-side-panel p2-side" id="p2-fighter-panel">
+          <div class="panel-header-badge badge-p2">
+            <span id="p2-panel-label">PLAYER 2</span> <span class="p-num">2P</span>
+          </div>
+
+          <!-- Big Portrait Artwork Frame -->
+          <div class="big-portrait-frame p2-frame" id="p2-portrait-frame">
+            <img id="p2-portrait-img" src="images/characters/naruto.jpg" alt="P2 Selected Fighter">
+            <div class="portrait-scanline"></div>
+            <div class="corner-bracket top-left"></div>
+            <div class="corner-bracket top-right"></div>
+            <div class="corner-bracket bottom-left"></div>
+            <div class="corner-bracket bottom-right"></div>
+          </div>
+
+          <!-- Character Details -->
+          <div class="fighter-info-box">
+            <div class="fighter-anime-tag" id="p2-anime-tag">NARUTO SHIPPUDEN</div>
+            <div class="fighter-name-display" id="p2-name-display">NARUTO UZUMAKI</div>
+            <div class="fighter-thai-name" id="p2-thai-display">Hero of the Hidden Leaf</div>
+            <div class="fighter-quote-bubble" id="p2-quote-display">"Dattebayo! I will never yield, that's my ninja way!"</div>
+          </div>
+
+          <!-- Player 2 Custom Name Input -->
+          <div class="player-name-entry-box">
+            <label for="p2-name-input" class="name-entry-lbl">
+              <span>✍️ Player 2 Name:</span>
+            </label>
+            <input type="text" id="p2-name-input" value="Player 2" maxlength="15" placeholder="Enter name e.g. Naruto, Sam..." class="arcade-name-input p2-input">
+          </div>
+
+          <!-- Lock-in & Random Pick Buttons -->
+          <div style="display: flex; gap: 0.5rem; width: 100%;">
+            <button class="btn-lock-fighter btn-lock-p2" id="btn-lock-p2" onclick="toggleLockIn('p2')" style="flex: 1;">
+              🟢 LOCK IN P2
+            </button>
+            <button type="button" class="btn-retro btn-blue" onclick="randomSelectFighter('p2')" title="Randomize Fighter for Player 2" style="font-size: 0.72rem; padding: 0.45rem 0.65rem;">
+              🎲 RANDOM
+            </button>
+          </div>
+          <div class="lock-status-indicator" id="p2-lock-indicator">⏳ Selecting Fighter...</div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==========================================================
+       MODAL: VERSUS INTRO BATTLE CLASH SPLASH
+       ========================================================== -->
+  <div class="modal-overlay hidden" id="versus-intro-modal">
+    <div class="versus-splash-screen">
+      <div class="vs-player-splash vs-left">
+        <img id="vs-splash-p1-img" src="images/characters/goku.jpg" alt="P1">
+        <div class="vs-splash-name" id="vs-splash-p1-name">PLAYER 1</div>
+        <div class="vs-splash-char" id="vs-splash-p1-char">SON GOKU</div>
+      </div>
+      <div class="vs-center-logo">
+        <div class="vs-giant-text">VS</div>
+        <div class="vs-subtitle">SPEED BATTLE</div>
+      </div>
+      <div class="vs-player-splash vs-right">
+        <img id="vs-splash-p2-img" src="images/characters/naruto.jpg" alt="P2">
+        <div class="vs-splash-name" id="vs-splash-p2-name">PLAYER 2</div>
+        <div class="vs-splash-char" id="vs-splash-p2-char">NARUTO UZUMAKI</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================
+       MODAL 3: COUNTDOWN OVERLAY (3... 2... 1... GO!)
+       ========================================================== -->
+  <div class="modal-overlay hidden" id="countdown-modal">
+    <div class="countdown-box">
+      <div class="countdown-number" id="countdown-num">3</div>
+    </div>
+  </div>
+
+  <!-- ==========================================================
+       MODAL 4: GAME OVER & WINNER
+       ========================================================== -->
+  <div class="modal-overlay hidden" id="gameover-modal" onclick="onOverlayClick(event, 'gameover-modal')">
+    <div class="gameover-card" style="position: relative;">
+      <!-- Prominent Close Button in Top-Right Corner -->
+      <button class="btn-close-modal" id="btn-close-gameover" onclick="closeGameOverModal()" title="Close">✖</button>
+
+      <div style="font-size: 3.5rem; margin-bottom: 0.5rem;">🏁</div>
+      <div class="gameover-title" id="gameover-title">MATCH FINISHED!</div>
+      <div id="gameover-details" style="color: #cbd5e1; margin-bottom: 1.75rem;"></div>
+
+      <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+        <button class="btn-retro btn-yellow" id="btn-replay" onclick="onReplayClicked()">🍄 PLAY AGAIN</button>
+        <button class="btn-retro btn-dark" id="btn-goto-scores" onclick="switchAppTab('scores'); closeGameOverModal();">🏆 LEADERBOARD</button>
+        <button class="btn-retro btn-red" id="btn-close-gameover-bottom" onclick="closeGameOverModal()">❌ CLOSE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="sprites.js"></script>
+  <script src="audio.js"></script>
+  <script src="poses_data.js"></script>
+  <script src="characters_data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
